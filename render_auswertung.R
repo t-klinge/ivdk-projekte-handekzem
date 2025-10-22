@@ -1,9 +1,9 @@
-# Create vector of lok values
+# Vektor mit lok-Werten erstellen
 lok_abk_namen <- readRDS("lokalisationen.rds")
 lok <- readRDS("lokalisationen.rds") |> 
   names()
 
-# Prepare named list as input for qmd file
+# Benannte Liste als Input für qmd-Datei erstellen, dabei Lok-Name aus dem Vektor lok_abk_namen entnehmen
 auswertungen <- 
   tibble(
     input = "auswertung_vorlage.qmd",

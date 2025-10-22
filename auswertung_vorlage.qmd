@@ -1,8 +1,6 @@
 ---
 lang: de
 
-
-
 execute: 
   echo: false
   warning: false
