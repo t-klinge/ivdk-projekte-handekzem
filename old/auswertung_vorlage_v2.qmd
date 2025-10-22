@@ -1,0 +1,163 @@
+---
+lang: de
+
+
+
+execute: 
+  echo: false
+  warning: false
+  message: false
+  
+format: 
+  docx:
+    toc: true
+    toc-title: ''
+    reference-doc: custom-reference-doc.docx
+
+knitr: 
+  opts_chunk:
+    dev: ragg_png
+    
+params:
+  lok: handin
+  
+title: "Contact sensitization in patients with allergic hand eczema: Patterns of sensitization and suspected allergen sources by eczema location: an analysis of patch test data of the Information Network of Departments of Dermatology (IVDK), 2005-2024"
+subtitle: "Lokalisation: `r unname(readRDS('lokalisationen.rds')[params$lok])`"
+---
+
+```{r load-libs}
+library(haven)
+library(janitor)
+#library(kableExtra)
+library(knitr)
+library(tidyverse) 
+library(quarto)
+```
+
+```{r def-paths}
+lok <- params$lok
+laufw <- "T"
+pfad_daten <- str_c(laufw, ":/besondere_auswertungen/handekzem/data")
+```
+
+```{r def-misc}
+# Dezimalzeichen: Komma
+options(OutDec = ",")
+
+# Levels definieren
+levels_fragen <- c("Ja", "Nein", "Unbekannt", "Angabe fehlt")
+```
+
+```{r data-imp}
+moahlfa <- read_sas(data_file = file.path(pfad_daten, str_c("moahlfa_ci2_", lok, ".sas7bdat")))
+kontaktstoffe <- read_sas(data_file = file.path(pfad_daten, str_c("kosto_ci2_", lok, ".sas7bdat")))
+kofaktoren <- read_sas(data_file = file.path(pfad_daten, str_c("kofak_ci2_", lok, ".sas7bdat")))
+kofaktoren_liste <- read_sas(data_file = file.path(pfad_daten, str_c("kofakt_ci2_", lok, ".sas7bdat")))
+hitliste_standardreihe <- read_sas(data_file = file.path(pfad_daten, str_c("listeg_konz_he0524_", lok, ".sas7bdat")))
+```
+
+# MOAHLFA-Index
+
+```{r moahlfa-tbl}
+moahlfa |> 
+mutate(Merkmal = merkmal,
+       Index = index,
+       Anzahl = count_pos,
+       Prozent = round(percent_pos, digits = 1),
+       .keep = "none"
+) |> 
+  knitr::kable(caption = str_c("MOAHLFA-Index, Lokalisation: ",
+      unname(readRDS('lokalisationen.rds')[params$lok]), 
+      ", N=", 
+      unique(moahlfa$trials_pos)[!is.na(unique(moahlfa$trials_pos))],
+      "."))
+```
+
+\newpage
+
+# Kontaktstoffe
+
+```{r kontaktstoffe-tbl}
+kontaktstoffe |> 
+  mutate(Bezeichnung = kontsto,
+         #Fälle = trials_pos,
+         Anzahl = count_pos,
+         Prozent = round(percent_pos, digits = 1),
+         .keep = "none") |> 
+  knitr::kable(caption = str_c("Kontaktstoffe, Lokalisation: ",
+      unname(readRDS('lokalisationen.rds')[params$lok]), 
+      ", N=", 
+      unique(kontaktstoffe$trials_pos),
+      "."))
+```
+
+\newpage
+
+# Bestehen zusätzliche Kofaktoren?
+
+```{r kofaktoren-tbl}
+if (str_detect(lok, "bd")) {
+  kofaktoren |> 
+    mutate(KOFA = ifelse(KOFA == "unbekannt", "Unbekannt", KOFA),
+           Angabe = fct_relevel(KOFA,
+                                levels_fragen),
+           #Fälle = trials_pos,
+           Anzahl = count_pos,
+           Prozent = round(percent_pos, digits = 1),
+           .keep = "none") |> 
+    select(- KOFA) |> 
+    arrange(Angabe) |> 
+    knitr::kable(caption = str_c("Bestehen zusätzliche Kofaktoren? Lokalisation: ",
+                                 unname(readRDS('lokalisationen.rds')[params$lok]), 
+                                 ", N=", 
+                                 unique(kofaktoren$trials_pos[1]),
+                                 "."))
+}
+```
+
+\newpage
+
+# Zusätzlich bestehende Kofaktoren
+
+```{r kofakt2-tbl}
+if (str_detect(lok, "bd")) {
+  kofaktoren_liste |> 
+    mutate(Bezeichnung = kofak,
+           #Fälle = trials_pos,
+           Anzahl = count_pos,
+           Prozent = round(percent_pos, digits = 1),
+           .keep = "none") |> 
+    knitr::kable(caption = str_c("Zusätzlich bestehende Kofaktoren, Lokalisation: ",
+                                 unname(readRDS('lokalisationen.rds')[params$lok]), 
+                                 ", N=", 
+                                 unique(kofaktoren_liste$trials_pos[1]),
+                                 "."))
+}
+```
+
+\newpage
+
+# Epikutantestung Standardreihe (`r unname(readRDS('lokalisationen.rds')[params$lok])`)
+
+```{r hitliste_standardreihe-tbl}
+hitliste_standardreihe |> 
+    filter(substid != 1916) |> 
+    mutate(Substanz = substid, 
+           Bezeichnung = substanz,
+           Testzubereitung = case_when(
+             vehi == "Vas" ~ str_c(round_half_up(konz, digits = 1), " ", einh, " pet."),
+             vehi == "Aqu" ~ str_c(round_half_up(konz, digits = 1), " ", einh, " aq."),
+             .default = str_c(round_half_up(konz, digits = 1), " ", einh, " ", vehi)
+             ),
+           #`Konz.` = round_half_up(konz, digits = 1),
+           Patienten = testzahl,
+           Positiv = count,
+           Prozent = round(percent2, digits = 1),
+           .keep = "used"
+    ) |> 
+  select(9:14) |> 
+  arrange(Substanz) |> 
+  knitr::kable(caption = str_c("Epikutantestung Standardreihe, Lokalisation: ",
+      unname(readRDS('lokalisationen.rds')[params$lok]), 
+      "."))
+```
